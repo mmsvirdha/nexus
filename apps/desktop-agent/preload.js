@@ -1,0 +1,30 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('nexus', {
+  getIdentity: () => ipcRenderer.invoke('nexus:get-identity'),
+  generatePairingCode: () => ipcRenderer.invoke('nexus:generate-pairing-code'),
+  listDevices: () => ipcRenderer.invoke('nexus:list-devices'),
+  getPermissions: (deviceId) => ipcRenderer.invoke('nexus:get-permissions', deviceId),
+  setPermissions: (deviceId, perms) => ipcRenderer.invoke('nexus:set-permissions', { deviceId, perms }),
+  revokeDevice: (deviceId) => ipcRenderer.invoke('nexus:revoke-device', deviceId),
+  getAuditLog: () => ipcRenderer.invoke('nexus:audit-log'),
+  getPermissionsCatalog: () => ipcRenderer.invoke('nexus:permissions-catalog'),
+  getReceivedFolder: () => ipcRenderer.invoke('nexus:received-folder'),
+  rejectFileOffer: (fileId, reason) => ipcRenderer.invoke('nexus:reject-file-offer', fileId, reason),
+  sendClipboardToPhone: () => ipcRenderer.invoke('nexus:send-clipboard'),
+
+  onDeviceDiscovered: (cb) => ipcRenderer.on('nexus:device-discovered', (_e, d) => cb(d)),
+  onPaired: (cb) => ipcRenderer.on('nexus:paired', (_e, d) => cb(d)),
+  onPermissionRequest: (cb) => ipcRenderer.on('nexus:permission-request', (_e, d) => cb(d)),
+  onDeviceConnected: (cb) => ipcRenderer.on('nexus:device-connected', (_e, d) => cb(d)),
+  onDeviceDisconnected: (cb) => ipcRenderer.on('nexus:device-disconnected', (_e, d) => cb(d)),
+  onDeviceRevoked: (cb) => ipcRenderer.on('nexus:device-revoked', (_e, d) => cb(d)),
+  onRevokedByPeer: (cb) => ipcRenderer.on('nexus:revoked-by-peer', (_e, d) => cb(d)),
+  onFileProgress: (cb) => ipcRenderer.on('nexus:file-progress', (_e, d) => cb(d)),
+  onFileOfferPending: (cb) => ipcRenderer.on('nexus:file-offer-pending', (_e, d) => cb(d)),
+  onFileOfferRejected: (cb) => ipcRenderer.on('nexus:file-offer-rejected', (_e, d) => cb(d)),
+  onFileReceived: (cb) => ipcRenderer.on('nexus:file-received', (_e, d) => cb(d)),
+  onClipboard: (cb) => ipcRenderer.on('nexus:clipboard', (_e, d) => cb(d)),
+  onStatus: (cb) => ipcRenderer.on('nexus:status', (_e, d) => cb(d)),
+  onNotification: (cb) => ipcRenderer.on('nexus:notification', (_e, d) => cb(d)),
+});

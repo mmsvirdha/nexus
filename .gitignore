@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+apps/mobile/node_modules/
+
+# Expo / Metro
+apps/mobile/.expo/
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# NEXUS runtime data — identities, store, received files
+.nexus/
+*.part
+*.zip
+
+# Build artifacts
+dist/
+build/
+web-build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Electron
+apps/desktop-agent/dist/
+
+# Jest
+coverage/

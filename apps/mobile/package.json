@@ -1,0 +1,35 @@
+{
+  "name": "nexus-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^1.0.0",
+    "@noble/curves": "^1.4.0",
+    "@noble/hashes": "^1.4.0",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "expo": "~51.0.0",
+    "expo-clipboard": "~6.0.3",
+    "expo-document-picker": "~12.0.2",
+    "expo-file-system": "~17.0.1",
+    "expo-secure-store": "~13.0.2",
+    "expo-status-bar": "~1.12.0",
+    "fast-text-encoding": "^1.0.6",
+    "react": "18.2.0",
+    "react-native": "0.74.0",
+    "react-native-get-random-values": "~1.11.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/runtime": "^8.0.5",
+    "jest": "^29.7.0",
+    "jest-expo": "~51.0.0",
+    "ws": "^8.18.0"
+  }
+}

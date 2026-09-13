@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "NEXUS",
+    "slug": "nexus-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0f1115"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "android": {
+      "package": "com.virdha.nexus",
+      "adaptiveIcon": {
+        "backgroundColor": "#0f1115"
+      }
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.virdha.nexus"
+    }
+  }
+}

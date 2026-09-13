@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>NEXUS</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font-family: -apple-system, Segoe UI, sans-serif; background:#0f1115; color:#e6e8eb; }
+  header { padding:16px 20px; border-bottom:1px solid #22252b; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { font-size:16px; margin:0; letter-spacing:0.04em; }
+  header .id { font-size:11px; color:#8a8f98; }
+  section { padding:16px 20px; border-bottom:1px solid #1a1c21; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:#8a8f98; margin:0 0 10px; }
+  .code { font-size:28px; letter-spacing:0.15em; font-weight:600; background:#181b21; padding:10px 14px; border-radius:8px; display:inline-block; }
+  .folder { font-size:11px; color:#9aa0a8; font-family: ui-monospace, monospace; margin-top:8px; word-break:break-all; }
+  .device { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #16181d; font-size:13px; gap:8px; }
+  .device:last-child { border-bottom:none; }
+  .device-main { display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .device-name { display:flex; align-items:center; gap:6px; }
+  .device-meta { font-size:11px; color:#6b7078; }
+  .device-actions { display:flex; gap:6px; flex-shrink:0; }
+  .dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+  .dot.online { background:#3ecf8e; }
+  .dot.offline { background:#555; }
+  .log { font-size:11px; color:#9aa0a8; max-height:160px; overflow-y:auto; font-family: ui-monospace, monospace; }
+  .log div { padding:2px 0; }
+  button { background:#2b6cff; color:white; border:none; padding:7px 11px; border-radius:6px; font-size:12px; cursor:pointer; }
+  button.ghost { background:#20232a; color:#c8ccd2; }
+  button.danger { background:#3a1f22; color:#ff8a8a; }
+  button:disabled { opacity:0.5; cursor:default; }
+  .empty { color:#5c6068; font-size:12px; }
+  .progress { background:#181b21; border-radius:6px; overflow:hidden; height:6px; margin-top:4px; }
+  .progress > div { background:#2b6cff; height:100%; transition: width 0.2s ease, background 0.2s ease; }
+  #transfer.done { color:#3ecf8e; font-weight:600; }
+  #transfer.done + .progress > div { background:#3ecf8e; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:10; }
+  .overlay.hidden { display:none; }
+  .modal { background:#15171c; border:1px solid #262930; border-radius:12px; width:340px; padding:18px; }
+  .modal h3 { margin:0 0 4px; font-size:14px; }
+  .modal .sub { font-size:11px; color:#8a8f98; margin-bottom:14px; }
+  .perm-row { display:flex; align-items:center; gap:8px; padding:6px 0; font-size:13px; border-bottom:1px solid #1c1f26; }
+  .perm-row:last-child { border-bottom:none; }
+  .perm-row .req-tag { margin-left:auto; font-size:10px; color:#f5c563; background:#2a2410; padding:2px 6px; border-radius:4px; }
+  .modal-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>NEXUS DESKTOP AGENT</h1>
+    <div class="id" id="identity">loading...</div>
+  </header>
+
+  <section>
+    <h2>Pair a new device</h2>
+    <p style="font-size:12px;color:#9aa0a8;margin:0 0 10px;">Generate a code and enter it on the phone/simulator you want to trust.</p>
+    <div id="pairingCode" class="code">------</div>
+    <div style="margin-top:10px;"><button id="genCode">Generate new code</button></div>
+  </section>
+
+  <section>
+    <h2>Trusted &amp; connected devices</h2>
+    <div id="devices"><div class="empty">No devices yet.</div></div>
+  </section>
+
+  <section>
+    <h2>Active transfer</h2>
+    <div id="transfer" class="empty">No transfer in progress.</div>
+    <div class="progress"><div id="transferBar" style="width:0%"></div></div>
+  </section>
+
+  <section>
+    <h2>Clipboard</h2>
+    <p style="font-size:12px;color:#9aa0a8;margin:0 0 10px;">Sends this laptop's current clipboard text to the connected phone.</p>
+    <button id="sendClip">Send laptop clipboard to phone</button>
+    <div id="clipResult" class="folder" style="margin-top:8px;"></div>
+  </section>
+
+  <section>
+    <h2>Incoming files saved to</h2>
+    <div class="folder" id="receivedFolder">…</div>
+  </section>
+
+  <section>
+    <h2>Activity</h2>
+    <div class="log" id="log"></div>
+  </section>
+
+  <div class="overlay hidden" id="permOverlay">
+    <div class="modal">
+      <h3 id="permTitle">New device</h3>
+      <div class="sub" id="permSub"></div>
+      <div id="permList"></div>
+      <div class="modal-actions">
+        <button class="ghost" id="permCancel">Cancel</button>
+        <button class="danger" id="permReject" style="display:none;">Reject device</button>
+        <button id="permSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const identityEl = document.getElementById('identity');
+  const codeEl = document.getElementById('pairingCode');
+  const devicesEl = document.getElementById('devices');
+  const logEl = document.getElementById('log');
+  const transferEl = document.getElementById('transfer');
+  const transferBar = document.getElementById('transferBar');
+  const receivedFolderEl = document.getElementById('receivedFolder');
+  const sendClipBtn = document.getElementById('sendClip');
+  const clipResultEl = document.getElementById('clipResult');
+
+  const permOverlay = document.getElementById('permOverlay');
+  const permTitle = document.getElementById('permTitle');
+  const permSub = document.getElementById('permSub');
+  const permList = document.getElementById('permList');
+  const permCancel = document.getElementById('permCancel');
+  const permReject = document.getElementById('permReject');
+  const permSave = document.getElementById('permSave');
+
+  const deviceMap = new Map();
+  let permCatalog = [];
+  let permDialogDeviceId = null;
+
+  function log(line) {
+    const div = document.createElement('div');
+    div.textContent = `${new Date().toLocaleTimeString()}  ${line}`;
+    logEl.prepend(div);
+  }
+
+  // ---- Active-transfer panel: idle / in-progress / done-then-reset ----
+  let transferResetTimer = null;
+
+  function resetTransferPanel() {
+    clearTimeout(transferResetTimer);
+    transferResetTimer = null;
+    transferEl.textContent = 'No transfer in progress.';
+    transferEl.classList.remove('done');
+    transferEl.classList.add('empty');
+    transferBar.style.width = '0%';
+  }
+
+  function showTransferDone(label) {
+    clearTimeout(transferResetTimer);
+    transferEl.textContent = label;
+    transferEl.classList.remove('empty');
+    transferEl.classList.add('done');
+    transferBar.style.width = '100%';
+    // Ready for the next file automatically — no manual reset needed.
+    transferResetTimer = setTimeout(resetTransferPanel, 3000);
+  }
+
+  function renderDevices() {
+    if (deviceMap.size === 0) { devicesEl.innerHTML = '<div class="empty">No devices yet.</div>'; return; }
+    devicesEl.innerHTML = '';
+    for (const [id, d] of deviceMap) {
+      const row = document.createElement('div');
+      row.className = 'device';
+      const lastSeen = d.lastSeen ? new Date(d.lastSeen).toLocaleTimeString() : '\u2014';
+      row.innerHTML = `
+        <div class="device-main">
+          <div class="device-name"><span class="dot ${d.status || 'offline'}"></span>${d.name || id}</div>
+          <div class="device-meta">${d.type || 'unknown'} \u00b7 ${id.slice(0, 18)} \u00b7 last seen ${lastSeen}</div>
+        </div>
+        <div class="device-actions">
+          <button class="ghost" data-action="edit" data-id="${id}">Permissions</button>
+          <button class="danger" data-action="revoke" data-id="${id}">Revoke</button>
+        </div>`;
+      devicesEl.appendChild(row);
+    }
+    devicesEl.querySelectorAll('[data-action="edit"]').forEach(btn => {
+      btn.addEventListener('click', () => openPermDialog(btn.dataset.id, { isNewDevice: false }));
+    });
+    devicesEl.querySelectorAll('[data-action="revoke"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        if (!confirm(`Revoke ${deviceMap.get(id)?.name || id}? It will need to fully re-pair to reconnect.`)) return;
+        await window.nexus.revokeDevice(id);
+        if (deviceMap.has(id)) { deviceMap.get(id).trusted = false; deviceMap.get(id).status = 'offline'; renderDevices(); }
+        log(`Revoked ${deviceMap.get(id)?.name || id}`);
+      });
+    });
+  }
+
+  async function openPermDialog(deviceId, { isNewDevice, requestedPermissions = [] } = {}) {
+    permDialogDeviceId = deviceId;
+    const device = deviceMap.get(deviceId) || {};
+    const current = isNewDevice ? {} : await window.nexus.getPermissions(deviceId);
+    permTitle.textContent = isNewDevice ? 'New device \u2014 approve access' : `Permissions \u2014 ${device.name || deviceId}`;
+    permSub.textContent = isNewDevice
+      ? `${device.name || deviceId} has paired and is asking for the permissions marked below. Nothing is granted until you save.`
+      : 'Toggle what this device is allowed to do. Changes apply immediately.';
+    permList.innerHTML = '';
+    permCatalog.forEach((perm) => {
+      const requested = requestedPermissions.includes(perm);
+      const checked = isNewDevice ? requested : !!current[perm];
+      const row = document.createElement('label');
+      row.className = 'perm-row';
+      row.innerHTML = `<input type="checkbox" data-perm="${perm}" ${checked ? 'checked' : ''}/> ${friendlyPermName(perm)}${requested ? '<span class="req-tag">requested</span>' : ''}`;
+      permList.appendChild(row);
+    });
+    permReject.style.display = isNewDevice ? 'inline-block' : 'none';
+    permOverlay.classList.remove('hidden');
+  }
+
+  function friendlyPermName(perm) {
+    return ({
+      FILE_SEND: 'Send files',
+      FILE_RECEIVE: 'Receive files',
+      CLIPBOARD_READ: "Read this PC's clipboard",
+      CLIPBOARD_WRITE: "Write to this PC's clipboard",
+      SCREEN_STREAM: 'Screen streaming (not implemented yet)',
+      REMOTE_INPUT: 'Remote mouse/keyboard (not implemented yet)',
+      SYSTEM_COMMAND: 'Execute arbitrary system commands (not implemented \u2014 deliberately never wired up)',
+      CAMERA_ACCESS: 'Camera access (not implemented yet)',
+      REMOTE_CONTROL: 'Remote control (lock, sleep, volume, media)',
+      NOTIFICATIONS: 'Forward phone notifications to this PC',
+    })[perm] || perm;
+  }
+
+  permCancel.addEventListener('click', () => permOverlay.classList.add('hidden'));
+  permReject.addEventListener('click', async () => {
+    if (permDialogDeviceId) {
+      await window.nexus.revokeDevice(permDialogDeviceId);
+      log(`Rejected device ${permDialogDeviceId}`);
+    }
+    permOverlay.classList.add('hidden');
+  });
+  permSave.addEventListener('click', async () => {
+    if (!permDialogDeviceId) return;
+    const perms = {};
+    permList.querySelectorAll('input[type="checkbox"]').forEach((cb) => { perms[cb.dataset.perm] = cb.checked; });
+    await window.nexus.setPermissions(permDialogDeviceId, perms);
+    log(`Updated permissions for ${deviceMap.get(permDialogDeviceId)?.name || permDialogDeviceId}`);
+    permOverlay.classList.add('hidden');
+  });
+
+  async function init() {
+    const identity = await window.nexus.getIdentity();
+    identityEl.textContent = `${identity.deviceName} \u00b7 ${identity.deviceId}`;
+    permCatalog = await window.nexus.getPermissionsCatalog();
+    const devices = await window.nexus.listDevices();
+    devices.forEach(d => deviceMap.set(d.deviceId, d));
+    renderDevices();
+    try {
+      const folder = await window.nexus.getReceivedFolder();
+      receivedFolderEl.textContent = folder;
+    } catch (_) {
+      receivedFolderEl.textContent = '(unknown)';
+    }
+  }
+
+  document.getElementById('genCode').addEventListener('click', async () => {
+    const code = await window.nexus.generatePairingCode();
+    codeEl.textContent = code.match(/.{1,3}/g).join(' ');
+    log('Generated pairing code \u2014 share it with the device you want to trust.');
+  });
+
+  sendClipBtn.addEventListener('click', async () => {
+    sendClipBtn.disabled = true;
+    sendClipBtn.textContent = 'Sending…';
+    try {
+      const result = await window.nexus.sendClipboardToPhone();
+      clipResultEl.textContent = result.ok
+        ? `\u2705 ${result.message} \u2014 "${result.preview}${result.preview && result.preview.length >= 60 ? '\u2026' : ''}"`
+        : `\u274c ${result.message}`;
+      log(result.ok ? `Sent clipboard to phone: "${result.preview}"` : `Clipboard send failed: ${result.message}`);
+    } catch (e) {
+      clipResultEl.textContent = `\u274c ${e.message || e}`;
+    } finally {
+      sendClipBtn.disabled = false;
+      sendClipBtn.textContent = 'Send laptop clipboard to phone';
+    }
+  });
+
+  window.nexus.onDeviceDiscovered((d) => {
+    deviceMap.set(d.deviceId, { deviceId: d.deviceId, name: d.name, status: 'pending', trusted: false });
+    renderDevices();
+    log(`Device wants to pair: ${d.name}`);
+  });
+  window.nexus.onPaired((d) => {
+    const existing = deviceMap.get(d.deviceId) || {};
+    deviceMap.set(d.deviceId, { ...existing, deviceId: d.deviceId, name: d.name, status: 'online', trusted: true, lastSeen: new Date().toISOString() });
+    renderDevices();
+    log(`Paired with ${d.name}`);
+  });
+  window.nexus.onPermissionRequest((d) => {
+    log(`${d.name} is requesting: ${(d.requestedPermissions || []).map(friendlyPermName).join(', ') || '(nothing specific)'}`);
+    openPermDialog(d.deviceId, { isNewDevice: true, requestedPermissions: d.requestedPermissions || [] });
+  });
+  window.nexus.onDeviceConnected((d) => log(`Connected: ${d.deviceId}`));
+  window.nexus.onDeviceDisconnected((id) => {
+    if (deviceMap.has(id)) { deviceMap.get(id).status = 'offline'; renderDevices(); }
+    log(`Disconnected: ${id}`);
+  });
+  window.nexus.onDeviceRevoked((d) => log(`Revoked device ${d.deviceId}`));
+  window.nexus.onRevokedByPeer((d) => log(`\u26a0\ufe0f This PC's trust was revoked by ${d.deviceId} \u2014 it must re-pair.`));
+  window.nexus.onFileOfferPending((f) => {
+    log(`Incoming file from ${f.fromName || f.from}: ${f.fileName}`);
+  });
+  window.nexus.onFileOfferRejected((f) => {
+    log(`File offer rejected: ${f.fileName || f.fileId} (${f.reason || 'unknown'})`);
+    resetTransferPanel();
+  });
+  window.nexus.onFileReceived((f) => {
+    log(`File received: ${f.fileName} \u2192 ${f.path}`);
+    showTransferDone(`\u2705 Received: ${f.fileName}`);
+  });
+  window.nexus.onFileProgress((p) => {
+    // A fresh chunk 0 means a new transfer is starting — clear any
+    // lingering "done" state from a previous file immediately instead
+    // of waiting for its 3s auto-reset.
+    if (p.chunkIndex === 0) {
+      clearTimeout(transferResetTimer);
+      transferEl.classList.remove('done', 'empty');
+    }
+    const pct = Math.round(((p.chunkIndex + 1) / p.totalChunks) * 100);
+    transferEl.textContent = `${p.direction === 'send' ? 'Sending' : 'Receiving'} \u2014 ${pct}%`;
+    transferBar.style.width = pct + '%';
+  });
+  window.nexus.onClipboard((c) => log(`\ud83d\udccb Clipboard from ${c.from}: "${c.text.slice(0, 40)}${c.text.length > 40 ? '\u2026' : ''}" \u2014 written to system clipboard`));
+  window.nexus.onStatus((s) => {});
+  window.nexus.onNotification((n) => log(`\ud83d\udd14 ${n.app || 'Notification'}: ${n.title || ''}`));
+
+  init();
+</script>
+</body>
+</html>
