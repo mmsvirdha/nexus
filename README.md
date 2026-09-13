@@ -173,4 +173,4 @@ engine.
 
 ## License
 
-MIT — see `LICENSE`.
+MIT — see [LICENSE](LICENSE) for details.
